@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SkyCast | Real-Time Weather</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            background: linear-gradient(135deg, #e2f348 0%, #4f71eb 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Inter', sans-serif;
+        }
+        .glass {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+        }
+        .weather-icon {
+            filter: drop-shadow(0 0 10px rgba(255,255,255,0.5));
+        }
+    </style>
+</head>
+<body class="p-4">
+
+    <div class="glass w-full max-w-md rounded-[2rem] p-8 text-white text-center">
+        <div class="relative mb-8">
+            <input type="text" id="cityInput" placeholder="Enter city name..." 
+                   class="w-full bg-white/20 border-none rounded-2xl py-3 px-12 text-white placeholder-white/70 focus:ring-2 focus:ring-white/50 outline-none transition-all">
+            <i class="fa-solid fa-location-dot absolute left-4 top-4 text-white/70"></i>
+            <button onclick="getWeather()" class="absolute right-3 top-2 bg-white text-blue-600 px-4 py-1.5 rounded-xl font-bold hover:bg-opacity-90 transition-all">Go</button>
+        </div>
+
+        <div id="weatherContent" class="hidden animate-fade-in">
+            <h2 id="cityName" class="text-3xl font-bold mb-1 uppercase tracking-wider">London</h2>
+            <p id="dateStr" class="text-sm opacity-80 mb-6">Sunday, 19 April</p>
+            
+            <div class="text-7xl font-light mb-4 flex justify-center items-start">
+                <span id="temp">22</span><span class="text-3xl mt-2">°C</span>
+            </div>
+            
+            <p id="description" class="text-xl font-medium capitalize mb-8">Clear Sky</p>
+
+            <div class="grid grid-cols-2 gap-4">
+                <div class="bg-white/10 rounded-2xl p-4">
+                    <i class="fa-solid fa-droplet text-blue-300 mb-2"></i>
+                    <p class="text-xs uppercase opacity-60">Humidity</p>
+                    <p id="humidity" class="text-lg font-bold">45%</p>
+                </div>
+                <div class="bg-white/10 rounded-2xl p-4">
+                    <i class="fa-solid fa-wind text-gray-300 mb-2"></i>
+                    <p class="text-xs uppercase opacity-60">Wind Speed</p>
+                    <p id="windSpeed" class="text-lg font-bold">12 km/h</p>
+                </div>
+            </div>
+        </div>
+
+        <div id="loader" class="py-12">
+            <i class="fa-solid fa-circle-notch fa-spin text-4xl"></i>
+            <p class="mt-4 opacity-70">Detecting atmosphere...</p>
+        </div>
+    </div>
+
+    <script>
+        async function getWeather() {
+            const city = document.getElementById('cityInput').value || 'London';
+            const loader = document.getElementById('loader');
+            const content = document.getElementById('weatherContent');
+
+            loader.classList.remove('hidden');
+            content.classList.add('hidden');
+
+            try {
+                // 1. Get Coordinates from City Name (Geocoding)
+                const geoRes = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1`);
+                const geoData = await geoRes.json();
+
+                if (!geoData.results) throw new Error("City not found");
+                const { latitude, longitude, name, country } = geoData.results[0];
+
+                // 2. Get Weather Data
+                const weatherRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m&timezone=auto`);
+                const weatherData = await weatherRes.json();
+
+                // 3. Update UI
+                document.getElementById('cityName').textContent = `${name}, ${country}`;
+                document.getElementById('temp').textContent = Math.round(weatherData.current.temperature_2m);
+                document.getElementById('humidity').textContent = `${weatherData.current.relative_humidity_2m}%`;
+                document.getElementById('windSpeed').textContent = `${weatherData.current.wind_speed_10m} km/h`;
+                document.getElementById('dateStr').textContent = new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
+                
+                // Weather Code Mapping (Simplified)
+                const codes = { 0: "Clear Sky", 1: "Mainly Clear", 2: "Partly Cloudy", 3: "Overcast", 45: "Foggy", 51: "Drizzle", 61: "Rainy", 71: "Snowy", 95: "Thunderstorm" };
+                document.getElementById('description').textContent = codes[weatherData.current.weather_code] || "Variable Clouds";
+
+                loader.classList.add('hidden');
+                content.classList.remove('hidden');
+
+            } catch (error) {
+                alert(error.message);
+                loader.classList.add('hidden');
+            }
+        }
+
+        // Initialize on Load
+        window.onload = getWeather;
+    </script>
+</body>
+</html>
